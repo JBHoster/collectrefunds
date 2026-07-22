@@ -757,12 +757,38 @@ def sitemap(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/healthz", include_in_schema=False)
 def healthz(db: Session = Depends(get_db)):
-    """Fails when ingest goes quiet, not just when the process dies. Serving
-    confidently-wrong deadlines is worse than being down."""
+    """Liveness check — is the web app up and the database reachable?
+
+    This is what the host (Render) polls to decide the deploy succeeded, so it must
+    return 200 as soon as the app is serving, even before the first scrape has run.
+    Data freshness is reported in the body (and enforced strictly by /healthz/data
+    for an uptime monitor) rather than failing this check, otherwise a brand-new
+    deploy can never go live.
+    """
     try:
         db.execute(select(func.count(Program.id)))
     except Exception as e:
         return JSONResponse({"ok": False, "db": str(e)}, status_code=503)
+
+    last = db.query(ScrapeRun).order_by(ScrapeRun.id.desc()).first()
+    stale = True
+    if last and last.finished_at:
+        stale = (datetime.utcnow() - last.finished_at) > timedelta(hours=26)
+    return JSONResponse({
+        "ok": True,                       # the app is alive
+        "data_fresh": bool(last and last.ok and not stale),
+        "stale": stale,
+        "programs": visible(db).filter(Program.status == "open").count(),
+        "last_ingest": last.finished_at.isoformat() if last and last.finished_at else None,
+        "version": app.version,
+    }, status_code=200)
+
+
+@app.get("/healthz/data", include_in_schema=False)
+def healthz_data(db: Session = Depends(get_db)):
+    """Strict freshness check for an external uptime monitor. Returns 503 when the
+    scraper has gone quiet (>26h) — because serving weeks-old deadlines is worse than
+    being down. Point your monitor here, not at /healthz."""
     last = db.query(ScrapeRun).order_by(ScrapeRun.id.desc()).first()
     stale = True
     if last and last.finished_at:
@@ -770,9 +796,7 @@ def healthz(db: Session = Depends(get_db)):
     healthy = bool(last and last.ok and not stale)
     return JSONResponse({
         "ok": healthy, "stale": stale,
-        "programs": visible(db).filter(Program.status == "open").count(),
         "last_ingest": last.finished_at.isoformat() if last and last.finished_at else None,
-        "version": app.version,
     }, status_code=200 if healthy else 503)
 
 
