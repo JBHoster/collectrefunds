@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Not found | {{ site_name }}{% endblock %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block body %}
+<main class="wrap message-page">
+  <p class="eyebrow">404</p>
+  <h1>That page isn't here.</h1>
+  <p class="lede">The program may have closed and been removed, or the link is wrong.
+  The full list of open programs is on the front page.</p>
+  <p><a class="btn btn-primary" href="/">See open programs</a></p>
+</main>
+{% endblock %}

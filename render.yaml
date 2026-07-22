@@ -1,0 +1,95 @@
+# Render blueprint — defines the whole site so "New → Blueprint" sets it up in one step.
+# Render reads this file automatically when you point it at your repo.
+#
+# It creates three things:
+#   1. a free Postgres database
+#   2. the website (web service)
+#   3. the background worker that scrapes the FTC and sends alerts
+#
+# You only fill in a few secret values in the Render dashboard (it prompts you).
+
+databases:
+  - name: collectrefunds-db
+    plan: free
+    databaseName: collectrefunds
+    user: collectrefunds
+
+services:
+  # ---------------------------------------------------------------- website
+  - type: web
+    name: collectrefunds
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt && alembic upgrade head"
+    startCommand: "gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:$PORT"
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: collectrefunds-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: RUN_SCHEDULER_IN_WEB
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.12.4"
+      # SECRET_KEY and ADMIN_PASSWORD are generated/prompted, not stored in the repo.
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: BASE_URL
+        sync: false
+      - key: CONTACT_EMAIL
+        sync: false
+      - key: USER_AGENT
+        sync: false
+      # Optional — leave blank until you set up Twilio / Stripe. Site runs without them.
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_MESSAGING_SERVICE_SID
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+
+  # ---------------------------------------------------------------- worker
+  - type: worker
+    name: collectrefunds-worker
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python -m app.worker"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: collectrefunds-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.12.4"
+      # Reuse the same secrets as the web service.
+      - key: SECRET_KEY
+        fromService:
+          name: collectrefunds
+          type: web
+          envVarKey: SECRET_KEY
+      - key: BASE_URL
+        sync: false
+      - key: USER_AGENT
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_MESSAGING_SERVICE_SID
+        sync: false

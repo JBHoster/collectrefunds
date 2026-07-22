@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Console | {{ site_name }}{% endblock %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block body %}
+<main class="wrap prose">
+  <p class="eyebrow">Admin</p>
+  <h1>Console</h1>
+
+  <h2>At a glance</h2>
+  <table class="admin-table">
+    <tr><th>Confirmed subscribers</th><th>Opted out</th><th>Texts sent today</th><th>Review queue</th></tr>
+    <tr>
+      <td>{{ subscribers }}</td>
+      <td>{{ opted_out }}</td>
+      <td>{{ sent_today }}</td>
+      <td class="{{ 'bad' if queue|length else 'ok' }}">{{ queue|length }}</td>
+    </tr>
+  </table>
+
+  <h2>Ingest health</h2>
+  <table class="admin-table">
+    <tr><th>Source</th><th>Finished</th><th>Found</th><th>New</th><th>Updated</th><th>Status</th></tr>
+    {% for r in runs %}
+    <tr>
+      <td>{{ r.source }}</td>
+      <td>{{ r.finished_at.strftime("%b %d %H:%M") if r.finished_at else "—" }}</td>
+      <td>{{ r.found }}</td><td>{{ r.created }}</td><td>{{ r.updated }}</td>
+      <td class="{{ 'ok' if r.ok else 'bad' }}">{{ "ok" if r.ok else "FAILED" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">No runs recorded yet.</td></tr>
+    {% endfor %}
+  </table>
+
+  {% if failures %}
+  <h2>Recent send failures</h2>
+  <table class="admin-table">
+    <tr><th>When</th><th>Error</th></tr>
+    {% for f in failures %}
+    <tr><td>{{ f.sent_at.strftime("%b %d %H:%M") }}</td><td class="bad">{{ f.error }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <h2>Awaiting review ({{ queue|length }})</h2>
+  <p class="fineprint">Extractions that scored below {{ threshold }}. Hidden from the
+  public list and never texted about until approved.</p>
+  {% for p in queue %}
+  <div class="review-item">
+    <h3>{{ p.name }}</h3>
+    <p class="fineprint">confidence {{ "%.2f"|format(p.confidence or 0) }} ·
+      <a href="{{ p.source_url }}" target="_blank" rel="noopener">check the source</a></p>
+    <dl class="facts">
+      <dt>Deadline</dt><dd>{{ p.claim_deadline or "— not extracted —" }}</dd>
+      <dt>Claim URL</dt><dd>{{ p.claim_url or "— not extracted —" }}</dd>
+      <dt>Payout</dt><dd>{{ p.payout_low or "—" }}</dd>
+      <dt>Eligibility</dt><dd>{{ p.eligibility or "—" }}</dd>
+    </dl>
+    <div class="review-actions">
+      <form method="post" action="/admin/review/{{ p.id }}/approve">
+        <button type="submit">Approve &amp; publish</button>
+      </form>
+      <form method="post" action="/admin/review/{{ p.id }}/reject">
+        <button type="submit" class="secondary">Reject</button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <p class="empty">Queue is clear. Nothing needs you.</p>
+  {% endfor %}
+</main>
+{% endblock %}

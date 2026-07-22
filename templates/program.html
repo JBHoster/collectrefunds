@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}{{ p.name }} — how to claim, deadline and payout | {{ site_name }}{% endblock %}
+{% block description %}{{ p.summary|truncate(155) }}{% endblock %}
+
+{% block head %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is the {{ p.name }} claim deadline?",
+      "acceptedAnswer": {"@type": "Answer", "text": "{{ deadline_answer }}"}
+    },
+    {
+      "@type": "Question",
+      "name": "How much is the {{ p.name }} payout?",
+      "acceptedAnswer": {"@type": "Answer", "text": "{{ payout_answer }}"}
+    },
+    {
+      "@type": "Question",
+      "name": "Who qualifies for {{ p.name }}?",
+      "acceptedAnswer": {"@type": "Answer", "text": "{{ eligibility_answer }}"}
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block body %}
+<article class="wrap program-page">
+  <nav class="crumbs"><a href="/">All programs</a> <span>/</span> {{ p.name }}</nav>
+
+  <header class="program-head">
+    <p class="eyebrow">{{ (p.category or "refund program").replace("_", " ") }}</p>
+    <h1>{{ p.name }}</h1>
+    {% if d.payout %}<p style="font-size:34px;font-weight:800;color:var(--green);letter-spacing:-.03em;margin:12px 0 4px">${{ d.payout }} <span style="font-size:16px;color:var(--ink-2);font-weight:600">per person</span></p>{% elif d.auto %}<p style="font-size:26px;font-weight:800;color:var(--green);margin:12px 0 4px">Paid automatically</p>{% endif %}
+    <p class="lede">{{ p.summary }}</p>
+    <div class="big-meter {{ meter.cls }}"><i style="width:{{ meter.pct }}%"></i></div>
+    {% if p.claim_deadline %}
+    <p class="big-countdown {{ meter.cls }}" id="pcountdown" data-deadline="{{ p.claim_deadline.isoformat() }}"><i style="width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block"></i>{{ meter.label }}</p>
+    {% else %}
+    <p class="big-countdown ok">No claim deadline posted yet</p>
+    {% endif %}
+  </header>
+
+  <div class="program-grid">
+    <div>
+      <h2>What you need to know</h2>
+      <dl class="facts">
+        <dt>Claim deadline</dt>
+        <dd>{% if p.claim_deadline %}{{ p.claim_deadline.strftime("%B %d, %Y") }}{% else %}None published yet{% endif %}</dd>
+        <dt>Estimated payout</dt>
+        <dd>{{ payout_answer }}</dd>
+        <dt>Total fund</dt>
+        <dd>{{ fund_h or "Not stated" }}</dd>
+        <dt>Who may qualify</dt>
+        <dd>{{ p.eligibility or "The official program sets the criteria — check the claim site." }}</dd>
+        <dt>What's required</dt>
+        <dd>{{ p.payout_note or "See the official site" }}</dd>
+        {% if d.proof_required %}<dt>Proof</dt><dd>Documentation or receipts may be requested</dd>{% endif %}
+        <dt>Administrator</dt>
+        <dd>{{ p.administrator or "—" }}{% if p.phone %} · {{ p.phone }}{% endif %}</dd>
+        <dt>Status</dt>
+        <dd>{{ p.status.replace("_", " ") }}</dd>
+      </dl>
+
+      <h2>How to claim</h2>
+      {% if p.status != "open" %}
+        <p class="notice">This program is no longer accepting claims. It stays listed for
+        reference.</p>
+      {% elif d.auto %}
+        <p>No claim form is needed for this one. Payment is issued automatically to people
+        the agency has already identified. If you think you qualify and haven't been
+        contacted, use the administrator's phone number above.</p>
+      {% else %}
+        <ol class="steps">
+          <li>Read the eligibility criteria on the official site and confirm they describe you.</li>
+          <li>Gather anything listed as required — order history, account email, or receipts.</li>
+          <li>File before {% if p.claim_deadline %}{{ p.claim_deadline.strftime("%B %d, %Y") }}{% else %}the posted deadline{% endif %}. Late claims are rejected.</li>
+          <li>Keep your confirmation number. Payments usually arrive months after the window closes.</li>
+        </ol>
+      {% endif %}
+
+      <p style="margin:20px 0 8px">
+        <a class="claim-cta" href="{{ p.claim_url or p.source_url }}" target="_blank" rel="noopener nofollow">
+          {% if p.claim_url %}File on the official site →{% else %}Read the official notice →{% endif %}
+        </a>
+      </p>
+      <p class="fineprint">
+        That link leaves {{ site_name }} and goes to the official program.
+        We never collect your claim and never charge a fee. Only file if you actually
+        qualify — a false claim is a federal offense.
+      </p>
+
+      <h2>Source</h2>
+      <p class="fineprint">
+        Tracked from <a href="{{ p.source_url }}" target="_blank" rel="noopener nofollow">the official listing</a>.
+        First recorded {{ p.first_seen_at.strftime("%b %d, %Y") }}, last checked
+        {{ p.last_seen_at.strftime("%b %d, %Y") }}. Spotted something wrong?
+        <a href="mailto:{{ contact_email }}?subject=Correction: {{ p.name }}">Tell us</a>.
+      </p>
+    </div>
+
+    <aside>
+      <section class="panel">
+        <h2>Don't miss the next one</h2>
+        <p class="panel-note">Get a free text the moment a new refund opens that matches
+        what you use. No account, no app. Reply STOP any time.</p>
+        <a class="claim-cta" href="/#alerts" style="display:flex;justify-content:center;width:100%">Set up alerts →</a>
+      </section>
+
+      {% if related %}
+      <section class="panel" style="margin-top:14px">
+        <h2>Also open now</h2>
+        <div class="related-list">
+          {% for r in related %}
+          <div class="related-item">
+            <a href="/programs/{{ r.slug }}">{{ r.name }}</a>
+            {% if r.payout %}<b>${{ r.payout }}</b>{% elif r.auto %}<b>Auto</b>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+    </aside>
+  </div>
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var el=document.getElementById('pcountdown');
+  if(!el||!el.dataset.deadline)return;
+  var target=new Date(el.dataset.deadline+'T23:59:59');
+  function tick(){
+    var diff=target-new Date();
+    if(diff<=0){el.innerHTML='<i style="width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block"></i>Claims closed';return;}
+    var d=Math.floor(diff/864e5),h=Math.floor(diff%864e5/36e5),m=Math.floor(diff%36e5/6e4);
+    el.innerHTML='<i style="width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block"></i>'+d+' days, '+h+' hrs, '+m+' min left to file';
+  }
+  tick();setInterval(tick,60000);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}{{ site_name }} — find the refund money you're owed{% endblock %}</title>
+<meta name="description" content="{% block description %}Track every official US government and class-action refund. See what you can claim, how much it's worth, and how long you have left. Free.{% endblock %}">
+<link rel="canonical" href="{{ base_url }}{{ path }}">
+<meta property="og:site_name" content="{{ site_name }}">
+<meta property="og:title" content="{{ self.title() }}">
+<meta property="og:description" content="{{ self.description() }}">
+<meta property="og:url" content="{{ base_url }}{{ path }}">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="{% block robots %}index,follow{% endblock %}">
+<meta name="theme-color" content="#141E18">
+<link rel="stylesheet" href="/static/styles.css">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+{% block head %}{% endblock %}
+</head>
+<body>
+
+<nav class="nav"><div class="wrap nav-in">
+  <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>{{ site_name }}</a>
+  <div class="nav-links">
+    <a href="/#best">Best right now</a>
+    <a href="/#upcoming">Upcoming</a>
+    <a href="/#all">All refunds</a>
+    <a href="/#pricing">Pricing</a>
+    <a href="/#pricing" class="nav-cta">Get alerts</a>
+  </div>
+</div></nav>
+
+{% block body %}{% endblock %}
+
+<footer><div class="wrap">
+  <div class="foot-in">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>{{ site_name }}</a>
+    <div class="foot-links">
+      <a href="/about">About</a>
+      <a href="/sources">Sources</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/sms">Text terms</a>
+      <a href="/terms">Terms</a>
+    </div>
+  </div>
+  <p class="disclaimer"><strong>{{ site_name }} is an independent tracker</strong> — not a law firm,
+  claims administrator, or government agency, and not affiliated with the FTC. We help you find official
+  refund programs and link you to the official claim site. Filing is always free. Anyone asking you to
+  pay to claim a refund is running a scam.</p>
+</div></footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}{{ site_name }} — claim the refund money that's yours{% endblock %}
+
+{% block body %}
+<header class="hero"><div class="wrap">
+  <div class="hero-grid">
+    <div>
+      <div class="kicker">Official refunds &amp; settlements</div>
+      <h1>The money is <em>yours</em>. We help you collect it.</h1>
+      <p class="hero-sub">CollectRefunds tracks every official US government and class-action
+      refund — what you can claim, what it's worth, and how long you have left. Free to use,
+      always filed on the official site.</p>
+      <div class="hero-actions">
+        <a href="#best" class="btn btn-primary">See what you can claim →</a>
+        <a href="#pricing" class="btn btn-ghost">Get alerts</a>
+      </div>
+    </div>
+    <div class="ledger">
+      <div class="ledger-corner" aria-hidden="true"></div>
+      <div class="lbl">Unclaimed &amp; open right now</div>
+      <div class="bignum" id="bignum" data-target="{{ stats.total_fund }}">{{ stats.total_fund_h }}</div>
+      <div class="sub">across <b>{{ stats.open_programs }}</b> open programs · claiming is always free</div>
+      <div class="ledger-row">
+        <div class="ledger-stat gold"><b>${{ stats.max_payout }}</b><span>Top payout</span></div>
+        <div class="ledger-stat red"><b>{{ stats.closing_soon }}</b><span>Closing this month</span></div>
+        <div class="ledger-stat"><b>5 min</b><span>To claim most</span></div>
+      </div>
+    </div>
+  </div>
+</div></header>
+
+{% if soonest %}
+<div class="wrap"><div class="closing">
+  <div class="closing-l">
+    <div class="closing-tag">Closing soonest</div>
+    <h3 id="cs-name">{{ soonest.name }}{% if soonest.payout %} — ${{ soonest.payout }} each{% elif soonest.auto %} — automatic payout{% endif %}</h3>
+    <p>{{ soonest.summary|truncate(90) }}</p>
+  </div>
+  <div class="countdown" id="countdown" data-deadline="{{ soonest.deadline_date }}"></div>
+  <a href="/programs/{{ soonest.slug }}" class="btn btn-primary">Check if you qualify →</a>
+</div></div>
+{% endif %}
+
+<section class="sec" id="best"><div class="wrap">
+  <div class="sec-head">
+    <div class="eyebrow">Best opportunities</div>
+    <h2>Where the money is right now</h2>
+    <p class="sec-desc">Ranked by payout, how easily you can claim, and time left. The marked entry is the single largest payout currently open.</p>
+  </div>
+  <div class="best-grid" id="bestgrid"></div>
+</div></section>
+
+{% if upcoming %}
+<section class="sec" id="upcoming" style="background:var(--paper-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)"><div class="wrap">
+  <div class="sec-head">
+    <div class="eyebrow">Coming soon</div>
+    <h2>Settlements on the horizon</h2>
+    <p class="sec-desc">These are proposed or awaiting court approval — claims aren't open yet.
+    Follow one and we'll text you the moment it opens, so you're first in line instead of finding out too late.</p>
+  </div>
+  <div class="upcoming-grid" id="upcominggrid"></div>
+</div></section>
+{% endif %}
+
+<div class="tools" id="all"><div class="wrap">
+  <div class="filter-bar" id="filterbar">
+    <button class="chip on" data-f="all">All refunds</button>
+    <button class="chip" data-f="soon">Closing soon</button>
+    <button class="chip" data-f="big">$50+ payout</button>
+    <button class="chip" data-f="free">No claim needed</button>
+    <button class="chip" data-f="noproof">No receipt</button>
+  </div>
+</div></div>
+<section class="sec" style="padding-top:10px"><div class="wrap"><div class="list" id="list"></div></div></section>
+
+<section class="sec pricing" id="pricing"><div class="wrap">
+  <div class="sec-head">
+    <div class="eyebrow">Membership</div>
+    <h2>Free to use. $4 to never miss one.</h2>
+    <p class="sec-desc">The site is free, always. Pro texts you the moment a refund you qualify for opens — so a deadline never quietly costs you money.</p>
+  </div>
+  <div class="plans">
+    <div class="plan">
+      <h3>Free</h3><div class="price">$0</div>
+      <div class="price-sub">everything you need to find and claim</div>
+      <ul class="feats">
+        <li><span class="tick"></span>Browse every open refund program</li>
+        <li><span class="tick"></span>Filter by payout, deadline, and effort</li>
+        <li><span class="tick"></span>Direct links to official claim sites</li>
+        <li><span class="tick"></span>Free text alert when a new one opens</li>
+      </ul>
+      <a href="#all" class="btn btn-outline">Start browsing</a>
+    </div>
+    <div class="plan pro">
+      <span class="plan-badge">Most popular</span>
+      <h3>Pro alerts</h3><div class="price">$4<small>/mo</small></div>
+      <div class="price-sub">less than a single small refund pays back</div>
+      <ul class="feats">
+        <li><span class="tick"></span>Instant text the second a match opens</li>
+        <li><span class="tick"></span>Countdown reminders before claims close</li>
+        <li><span class="tick"></span>Choose exactly which categories alert you</li>
+        <li><span class="tick"></span>Early heads-up on big new settlements</li>
+      </ul>
+      <button type="button" class="btn btn-primary" id="get-pro" style="width:100%;justify-content:center;border:none;cursor:pointer">Get Pro alerts</button>
+    </div>
+  </div>
+  <p class="fair"><b>Our fairness promise:</b> Pro costs less than what a single refund pays back.
+  One missed $8 credit already covers two months. We never charge to file — claiming is always free on the official site.</p>
+</div></section>
+
+<!-- SMS signup -->
+<section class="sec signup-sec" id="alerts"><div class="wrap">
+  <div class="sec-head" style="text-align:center;margin-left:auto;margin-right:auto">
+    <div class="eyebrow" id="signup-eyebrow">Text alerts</div>
+    <h2>Get a text when a new one opens.</h2>
+    <p class="sec-desc" id="signup-intro" style="margin:8px auto 0">No account, no app. Enter your number, pick your filters, confirm with the code we text you. Reply STOP any time.</p>
+  </div>
+  <form class="signup" id="sms-form">
+    <div id="step-phone">
+      <label for="phone">Mobile number</label>
+      <input type="tel" id="phone" placeholder="(555) 123-4567" autocomplete="tel" inputmode="tel" required>
+      <label for="f-min">Only alert me about</label>
+      <select id="f-min">
+        <option value="0">Any payout</option>
+        <option value="25">$25 or more</option>
+        <option value="50">$50 or more</option>
+        <option value="100">$100 or more</option>
+      </select>
+      <label class="check"><input type="checkbox" id="f-claim"><span>Skip automatic payouts — only ones I have to claim</span></label>
+      <label class="check"><input type="checkbox" id="consent" required><span>I agree to receive recurring automated text alerts from {{ site_name }} at this number. Consent isn't a condition of anything. Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help.</span></label>
+      <button type="submit" class="btn btn-primary" id="sms-submit">Text me new refunds</button>
+    </div>
+    <div id="step-code" hidden>
+      <p class="code-intro">We texted a 6-digit code to <strong id="code-target"></strong>. Enter it below, or reply to the text with the code.</p>
+      <label for="code">Confirmation code</label>
+      <input type="text" id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="123456" autocomplete="one-time-code">
+      <button type="button" class="btn btn-primary" id="confirm-btn">Confirm</button>
+      <button type="button" class="btn btn-ghost" id="restart" style="margin-top:8px">Use a different number</button>
+    </div>
+    <p class="form-status" id="sms-status" role="status"></p>
+  </form>
+</div></section>
+
+<div class="trust"><div class="wrap"><div class="trust-grid">
+  <div class="trust-item"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16305B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6"/></svg></div><b>Official sources only</b><span>Every refund comes from the FTC and court-appointed administrators. Nothing invented.</span></div>
+  <div class="trust-item"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16305B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><b>We never touch your money</b><span>You claim on the government's own site. We're a signpost, not a middleman, and never take a cut.</span></div>
+  <div class="trust-item"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16305B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><b>Scam-free by design</b><span>We never ask for payment, card details, or your SSN. Anyone who does is a scam.</span></div>
+</div></div></div>
+{% endblock %}
+
+{% block scripts %}
+<script id="bootstrap" type="application/json">{{ programs_json|safe }}</script>
+<script id="best-data" type="application/json">{{ best_json|safe }}</script>
+<script id="soonest-data" type="application/json">{{ soonest_json|safe }}</script>
+<script id="upcoming-data" type="application/json">{{ upcoming_json|safe }}</script>
+<script>window.__VERSION__={{ version|tojson }};</script>
+<script src="/static/app.js"></script>
+{% endblock %}
