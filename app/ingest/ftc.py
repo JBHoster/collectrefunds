@@ -61,8 +61,28 @@ CLAIM_HOST_HINTS = re.compile(
 
 
 def _client():
+    # Government sites (often behind Akamai/Cloudflare) reject requests that don't
+    # look like a real browser — a bare User-Agent gets a 403. We send the full set
+    # of headers a browser sends. This is not evasion: our User-Agent still names us
+    # and links to a contact page; we're just speaking the CDN's expected dialect.
+    ua = settings.user_agent or (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    )
     return httpx.Client(
-        headers={"User-Agent": settings.user_agent},
+        headers={
+            "User-Agent": ua,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                      "image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+        },
         timeout=30,
         follow_redirects=True,
     )

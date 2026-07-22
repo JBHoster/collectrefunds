@@ -54,6 +54,23 @@ def _startup():
             raise RuntimeError("Refusing to start: SECRET_KEY is unset in production.")
         if not settings.admin_password:
             log.warning("ADMIN_PASSWORD unset — admin returns 503.")
+
+    # If the database is empty (fresh deploy), load demo programs so the site is
+    # never blank while the first real scrape runs — or if the source is briefly
+    # unreachable. Real FTC data layers on top; the demo rows share source_key
+    # values the scraper would use, so they update in place rather than duplicate.
+    try:
+        with SessionLocal() as s:
+            if s.query(Program).count() == 0:
+                from .demo_data import DEMO
+                from .ingest.base import upsert, sweep_deadlines
+                upsert(s, "ftc", DEMO)
+                sweep_deadlines(s)
+                s.commit()
+                log.info("seeded %d demo programs on first boot", len(DEMO))
+    except Exception:
+        log.exception("first-boot seed skipped")
+
     if settings.run_scheduler_in_web:
         from .scheduler import start_scheduler
         start_scheduler()
