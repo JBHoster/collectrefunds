@@ -110,6 +110,20 @@ def is_auto(p) -> bool:
     return bool(p.payout_note and "automatic" in p.payout_note.lower())
 
 
+def is_claimable(p) -> bool:
+    """Whether we should present this as something a person can still act on.
+
+    This never trusts the stored status alone: a past claim_deadline means closed,
+    full stop — even if a scrape lagged or seed data is stale. This is the guard
+    that prevents ever showing a 'claim now' button for a window that has closed.
+    """
+    if p.status not in ("open",):
+        return False
+    if p.claim_deadline is not None and p.days_left is not None and p.days_left < 0:
+        return False
+    return True
+
+
 TRUSTED_CLAIM_DOMAINS = (
     ".gov",                     # any federal/state government site (ftc.gov, etc.)
     "classaction.org",          # not a claim host, but safe informational fallback
@@ -146,6 +160,7 @@ def as_dict(p: Program) -> dict:
         "payout": est, "payout_h": money_h(est),
         "total_fund": p.total_fund, "fund_h": money_h(p.total_fund),
         "payout_note": p.payout_note, "auto": is_auto(p),
+        "claimable": is_claimable(p),
         "proof_required": bool(p.proof_required),
         "claim_url": claim, "claim_direct": claim_direct, "source_url": p.source_url,
         "administrator": p.administrator, "phone": p.phone,
@@ -216,7 +231,9 @@ def data_version(db: Session) -> str:
 def home(request: Request, db: Session = Depends(get_db)):
     programs = (visible(db).filter(Program.status == "open")
                 .order_by(nulls_last(Program.claim_deadline.asc())).limit(300).all())
-    rows = [as_dict(p) for p in programs]
+    # Belt-and-suspenders: drop anything past its deadline even if a scrape lagged,
+    # so an expired program can never surface as claimable on the homepage.
+    rows = [as_dict(p) for p in programs if is_claimable(p)]
     cats = sorted({r["category"] for r in rows if r["category"]})
 
     # Best opportunities: transparent score over payout, ease, and urgency.

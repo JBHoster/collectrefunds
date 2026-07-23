@@ -84,9 +84,15 @@
       {% endif %}
 
       <p style="margin:20px 0 8px">
+        {% if d.claimable %}
         <a class="claim-cta" href="{{ d.claim_url }}" target="_blank" rel="noopener nofollow">
           {% if d.claim_direct %}File on the official site →{% else %}Go to the official FTC page →{% endif %}
         </a>
+        {% else %}
+        <a class="claim-cta" style="background:var(--ink-3)" href="{{ p.source_url or d.claim_url }}" target="_blank" rel="noopener nofollow">
+          Read the official notice →
+        </a>
+        {% endif %}
       </p>
       <p class="fineprint">
         That link leaves {{ site_name }} and goes to the official program.

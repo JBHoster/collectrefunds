@@ -479,3 +479,32 @@ def test_claim_url_only_trusts_official_domains():
     # look-alike domain trick (ftc.gov.evil.com) must NOT be trusted
     url, direct = safe_claim_url(P("https://ftc.gov.evil.com/claim", "https://www.ftc.gov/z"))
     assert "evil" not in url and direct is False
+
+
+# ============================================================ closed-claim guard
+def test_expired_program_is_never_claimable():
+    """A past claim deadline means closed — even if the stored status still says
+    'open' (e.g. a scrape lagged or seed data is stale). This guard is what prevents
+    ever showing a 'claim now' button for a window that has closed."""
+    from datetime import date, timedelta
+    from app.main import is_claimable
+
+    class P:
+        def __init__(self, status, deadline):
+            self.status = status
+            self.claim_deadline = deadline
+        @property
+        def days_left(self):
+            if self.claim_deadline is None:
+                return None
+            return (self.claim_deadline - date.today()).days
+
+    today = date.today()
+    # open + future deadline → claimable
+    assert is_claimable(P("open", today + timedelta(days=30))) is True
+    # open + PAST deadline → NOT claimable (the Fortnite bug)
+    assert is_claimable(P("open", today - timedelta(days=1))) is False
+    # explicitly closed → not claimable
+    assert is_claimable(P("claims_closed", today + timedelta(days=30))) is False
+    # open + no deadline → claimable (automatic-payout programs)
+    assert is_claimable(P("open", None)) is True

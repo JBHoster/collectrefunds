@@ -35,12 +35,13 @@ DEMO = [
        administrator="Rust Consulting, Inc.", phone="1-833-637-4884",
        announced_on=T-timedelta(days=340), claim_deadline=T+timedelta(days=5), status="open", confidence=0.85),
   dict(source_key="fortnite-refunds", name="Fortnite Refunds", company="Fortnite",
-       category="tech_products", summary="Refunds for players charged for unwanted in-game purchases through misleading button design.",
-       payout_low=114.0, payout_high=114.0, total_fund=2.45e8, payout_note="Claim form required",
+       category="tech_products", summary="Refunds for players charged for unwanted in-game purchases through misleading button design. The FTC claim window has closed; payments to those who already filed continue in 2026.",
+       payout_low=114.0, payout_high=114.0, total_fund=2.45e8, payout_note="Claim window closed — filed claims being paid",
        proof_required=True, claim_url="https://www.ftc.gov/fortnite",
        source_url="https://www.ftc.gov/enforcement/refunds/fortnite-refunds",
        administrator="Rust Consulting, Inc.", phone="1-833-915-0880",
-       announced_on=T-timedelta(days=380), claim_deadline=T+timedelta(days=140), status="open", confidence=0.92),
+       announced_on=T-timedelta(days=380), claim_deadline=T-timedelta(days=200),
+       status="claims_closed", confidence=0.92),
 
   # --- UPCOMING (announced, claims not yet open) — the subscription funnel ---
   dict(source_key="apple-siri-privacy", name="Apple Siri Privacy Settlement", company="Apple",
