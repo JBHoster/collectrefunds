@@ -11,13 +11,13 @@ Three separate safety rails, because SMS mistakes are expensive and irreversible
   3. Quiet hours — nothing goes out overnight.
 """
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.exc import IntegrityError
 
 from .config import settings
 from .models import Delivery, Event, Program, Subscriber
-from .sms import alert_message, send_sms
+from .sms import alert_message, digest_message, send_sms
 
 log = logging.getLogger("claimwatch.notify")
 
@@ -70,6 +70,23 @@ def _under_daily_cap(sub: Subscriber) -> bool:
     # silently drops an alert they paid to receive.
     cap = settings.max_sms_per_day * 3 if getattr(sub, "is_pro", False) else settings.max_sms_per_day
     return (sub.sends_today or 0) < cap
+
+
+def wants_instant(sub: Subscriber, program: Program, event) -> bool:
+    """Who gets an *instant* text for this event.
+
+    The paid/free line, stated plainly:
+      - Pro members get instant alerts the moment a qualifying refund opens, plus
+        deadline reminders. This is what they pay for.
+      - Free members do NOT get instant per-event texts; they get a weekly digest
+        (sent by a separate job). The exception below keeps a promise we made them.
+      - Anyone who explicitly followed an upcoming program is told the instant it
+        opens, Pro or not — we promised that specific alert when they signed up.
+    """
+    follows = [s for s in (sub.follows or "").split(",") if s]
+    if program.slug in follows and _is_now_open(program, event):
+        return True
+    return bool(getattr(sub, "is_pro", False))
 
 
 def _claim(session, subscriber_id: int, event_id: int) -> bool:
@@ -134,6 +151,12 @@ def dispatch(session, limit: int = 500, force: bool = False) -> int:
                 if not passes_filters(sub, program):
                     continue
 
+            # Free members don't get instant per-event texts (except a program they
+            # explicitly followed). They receive a weekly digest instead — this is
+            # the core Pro benefit: instant vs. weekly.
+            if not wants_instant(sub, program, event):
+                continue
+
             if not _under_daily_cap(sub):
                 continue
             if not _claim(session, sub.id, event.id):
@@ -156,4 +179,49 @@ def dispatch(session, limit: int = 500, force: bool = False) -> int:
 
         event.notified = True
 
+    return sent
+
+
+def send_weekly_digest(session, force: bool = False) -> int:
+    """Weekly summary text for FREE members (Pro members get instant alerts instead).
+
+    Counts refunds that opened in the last 7 days and sends verified free subscribers
+    a single summary pointing back to the site. Idempotency is handled by the caller
+    scheduling it once a week; we also skip anyone texted a digest in the last 6 days.
+    """
+    if not force and in_quiet_hours():
+        return 0
+
+    since = datetime.utcnow() - timedelta(days=7)
+    new_events = (session.query(Event)
+                  .filter(Event.kind == "new_program", Event.created_at >= since)
+                  .all())
+    program_ids = {e.program_id for e in new_events}
+    programs = [session.get(Program, pid) for pid in program_ids]
+    programs = [p for p in programs if p and p.published and not p.needs_review
+                and p.status == "open"]
+    count = len(programs)
+
+    top_name, top_payout = None, None
+    if programs:
+        top = max(programs, key=lambda p: (p.payout_high or p.payout_low or 0))
+        top_name, top_payout = top.name, (top.payout_high or top.payout_low)
+
+    free_subs = (session.query(Subscriber)
+                 .filter(Subscriber.verified.is_(True),
+                         Subscriber.opted_out.is_(False),
+                         Subscriber.is_pro.is_(False))
+                 .all())
+
+    sent = 0
+    for sub in free_subs:
+        # Skip if we sent this person a digest very recently (weekly cadence).
+        if sub.last_digest_at and (datetime.utcnow() - sub.last_digest_at) < timedelta(days=6):
+            continue
+        ok, err = send_sms(sub.phone, digest_message(count, top_name, top_payout))
+        if ok:
+            sub.last_digest_at = datetime.utcnow()
+            sent += 1
+        else:
+            log.warning("digest send failed: %s", err)
     return sent

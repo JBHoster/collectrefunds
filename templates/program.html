@@ -84,8 +84,8 @@
       {% endif %}
 
       <p style="margin:20px 0 8px">
-        <a class="claim-cta" href="{{ p.claim_url or p.source_url }}" target="_blank" rel="noopener nofollow">
-          {% if p.claim_url %}File on the official site →{% else %}Read the official notice →{% endif %}
+        <a class="claim-cta" href="{{ d.claim_url }}" target="_blank" rel="noopener nofollow">
+          {% if d.claim_direct %}File on the official site →{% else %}Go to the official FTC page →{% endif %}
         </a>
       </p>
       <p class="fineprint">

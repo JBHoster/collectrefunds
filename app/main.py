@@ -110,10 +110,35 @@ def is_auto(p) -> bool:
     return bool(p.payout_note and "automatic" in p.payout_note.lower())
 
 
+TRUSTED_CLAIM_DOMAINS = (
+    ".gov",                     # any federal/state government site (ftc.gov, etc.)
+    "classaction.org",          # not a claim host, but safe informational fallback
+)
+
+
+def safe_claim_url(p: Program) -> tuple[str, bool]:
+    """Decide where the 'claim' button should point — safely.
+
+    Scam copycat sites spring up around every big settlement, so we NEVER send
+    people to an unverified administrator domain. A claim_url is used only if it's
+    on a trusted (official) domain; otherwise we fall back to the FTC .gov source
+    page, which itself links to the verified administrator. Returns (url, is_direct).
+    """
+    url = (p.claim_url or "").strip()
+    if url:
+        low = url.lower()
+        host = low.split("://", 1)[-1].split("/", 1)[0]
+        if any(host == d.lstrip(".") or host.endswith(d) for d in TRUSTED_CLAIM_DOMAINS):
+            return url, True
+    # Fall back to the official source page (a .gov listing) — always safe.
+    return (p.source_url or "https://www.ftc.gov/enforcement/refunds"), False
+
+
 def as_dict(p: Program) -> dict:
     """One shape, used by the API, the templates and the client filter."""
     m = meter(p.days_left)
     est = p.payout_high or p.payout_low
+    claim, claim_direct = safe_claim_url(p)
     return {
         "slug": p.slug, "name": p.name, "company": p.company,
         "summary": p.summary, "category": p.category,
@@ -122,7 +147,7 @@ def as_dict(p: Program) -> dict:
         "total_fund": p.total_fund, "fund_h": money_h(p.total_fund),
         "payout_note": p.payout_note, "auto": is_auto(p),
         "proof_required": bool(p.proof_required),
-        "claim_url": p.claim_url, "source_url": p.source_url,
+        "claim_url": claim, "claim_direct": claim_direct, "source_url": p.source_url,
         "administrator": p.administrator, "phone": p.phone,
         "eligibility": p.eligibility,
         "deadline": p.claim_deadline.isoformat() if p.claim_deadline else None,

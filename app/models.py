@@ -130,6 +130,7 @@ class Subscriber(Base):
     consent_at = Column(DateTime)
     sends_today = Column(Integer, default=0)   # frequency cap
     sends_day = Column(Date)
+    last_digest_at = Column(DateTime)          # when the weekly free digest last went
 
     # Pro subscription (paid). Free subscribers still get alerts, just throttled;
     # Pro gets instant delivery and unlimited follows. Set by the Stripe webhook.

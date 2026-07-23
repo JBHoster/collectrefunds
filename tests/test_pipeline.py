@@ -141,7 +141,7 @@ def test_dispatch_never_double_sends_after_replay():
     from app.notify import dispatch
     s = make_session()
     _prog(s)
-    _sub(s)
+    _sub(s, is_pro=True)   # only Pro gets instant per-event texts
 
     first = dispatch(s, force=True)
     s.commit()
@@ -177,10 +177,13 @@ def test_daily_cap_is_enforced():
     from app.config import settings
     from app.notify import dispatch
     s = make_session()
-    for i in range(settings.max_sms_per_day + 2):
+    # Pro cap is 3x the base. Pre-load sends so only the last slot remains, and
+    # verify dispatch stops at the ceiling rather than sending all events.
+    pro_cap = settings.max_sms_per_day * 3
+    for i in range(pro_cap + 2):
         _prog(s, source_key=f"cap{i}", name=f"Program {i}")
-    _sub(s)
-    assert dispatch(s, force=True) == settings.max_sms_per_day
+    _sub(s, is_pro=True)
+    assert dispatch(s, force=True) == pro_cap
 
 
 def test_quiet_hours_defer_rather_than_drop():
@@ -191,7 +194,7 @@ def test_quiet_hours_defer_rather_than_drop():
 
     s = make_session()
     _prog(s)
-    _sub(s)
+    _sub(s, is_pro=True)   # only Pro gets instant per-event texts
 
     original = settings.send_window_start_utc, settings.send_window_end_utc
     try:
@@ -404,3 +407,75 @@ def test_pro_members_get_a_higher_daily_cap():
     _sub(s, is_pro=True)
     # a Pro member should receive more than the free cap in one run
     assert dispatch(s, force=True) > settings.max_sms_per_day
+
+
+# ============================================================ free vs pro model
+def test_free_members_do_not_get_instant_texts():
+    """Free members get a weekly digest, NOT instant per-event alerts. This is the
+    core of the paid/free distinction, so it's worth pinning down."""
+    from app.notify import dispatch
+    s = make_session()
+    _prog(s, source_key="fx1", name="Some Refund", payout_low=50.0)
+    _sub(s, is_pro=False)               # free
+    assert dispatch(s, force=True) == 0  # nothing instant for free
+
+
+def test_pro_members_get_instant_texts():
+    from app.notify import dispatch
+    s = make_session()
+    _prog(s, source_key="px1", name="Some Refund", payout_low=50.0)
+    _sub(s, is_pro=True)
+    assert dispatch(s, force=True) == 1
+
+
+def test_free_follower_still_told_when_followed_program_opens():
+    """Even a free member is texted instantly for a program they explicitly followed."""
+    from app.notify import dispatch
+    s = make_session()
+    upsert(s, "ftc", [dict(source_key="fo1", name="Upcoming One", company="Z",
+                           source_url="http://e/fo1", status="upcoming")])
+    prog = s.query(Program).filter_by(source_key="fo1").one()
+    _sub(s, is_pro=False, follows=prog.slug)
+    for e in s.query(Event).all():
+        e.notified = True
+    upsert(s, "ftc", [dict(source_key="fo1", name="Upcoming One", company="Z",
+                           source_url="http://e/fo1", status="open", payout_low=20.0)])
+    assert dispatch(s, force=True) == 1   # followed → instant, even on free
+
+
+def test_weekly_digest_targets_free_members_only():
+    from app.notify import send_weekly_digest
+    s = make_session()
+    _prog(s, source_key="wd1", name="Weekly One", payout_low=40.0)
+    _sub(s, phone="+15551110001", is_pro=False)
+    _sub(s, phone="+15551110002", is_pro=True)
+    sent = send_weekly_digest(s, force=True)
+    assert sent == 1     # only the free member gets the digest
+
+
+# ============================================================ claim-url safety
+def test_claim_url_only_trusts_official_domains():
+    """Scam copycat sites appear around every settlement. The claim button must
+    NEVER point at an unverified administrator domain — only .gov (or a safe
+    fallback), routing everything else through the official FTC page."""
+    from app.main import safe_claim_url
+
+    class P:
+        def __init__(self, claim, source):
+            self.claim_url, self.source_url = claim, source
+
+    # a real .gov claim url is used directly
+    url, direct = safe_claim_url(P("https://www.ftc.gov/fortnite", "https://www.ftc.gov/x"))
+    assert url == "https://www.ftc.gov/fortnite" and direct is True
+
+    # an untrusted domain is rejected and falls back to the .gov source
+    url, direct = safe_claim_url(P("https://scam-refunds.com", "https://www.ftc.gov/x"))
+    assert "scam" not in url and url == "https://www.ftc.gov/x" and direct is False
+
+    # no claim url at all → the source page
+    url, direct = safe_claim_url(P(None, "https://www.ftc.gov/enforcement/refunds/y"))
+    assert url.endswith("/y") and direct is False
+
+    # look-alike domain trick (ftc.gov.evil.com) must NOT be trusted
+    url, direct = safe_claim_url(P("https://ftc.gov.evil.com/claim", "https://www.ftc.gov/z"))
+    assert "evil" not in url and direct is False

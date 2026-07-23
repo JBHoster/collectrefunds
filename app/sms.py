@@ -166,3 +166,23 @@ def alert_message(program, kind: str) -> str:
         name = name[:max(1, budget - 1)].rstrip() + "…"
 
     return f"{prefix}{name}.{fact_str} {tail}"
+
+
+def digest_message(count: int, top_name: str | None, top_payout=None) -> str:
+    """Weekly summary for free members. Points them back to the site to see all.
+
+    Free tier gets one of these a week; Pro gets instant per-refund alerts instead.
+    """
+    base = settings.base_url.rstrip("/")
+    if count <= 0:
+        return (f"{BRAND}: no new refunds opened this week. We'll keep watching. "
+                f"{base}  Reply STOP to end.")
+    lead = f"{BRAND}: {count} new refund{'s' if count != 1 else ''} opened this week"
+    if top_name:
+        amt = f" (top: {top_name}"
+        if top_payout:
+            amt += f", ~${top_payout:,.0f}"
+        amt += ")"
+        lead += amt
+    return (f"{lead}. See if you qualify: {base}  "
+            f"Upgrade to Pro for instant alerts. Reply STOP to end.")
